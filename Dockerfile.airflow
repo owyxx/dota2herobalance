@@ -1,0 +1,20 @@
+FROM apache/airflow:2.7.3
+
+USER root
+
+RUN printf 'deb http://snapshot.debian.org/archive/debian/20260825T000000Z bullseye main\ndeb http://snapshot.debian.org/archive/debian-security/20260825T000000Z bullseye-security main\n' > /etc/apt/sources.list && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+RUN pip install --no-cache-dir \
+    psycopg2-binary \
+    requests \
+    tabulate

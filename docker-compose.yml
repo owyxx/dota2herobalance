@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: dota2_postgres
+    environment:
+      POSTGRES_USER: dota2
+      POSTGRES_PASSWORD: dota2pass
+      POSTGRES_DB: dota2db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: dota2_metabase
+    ports:
+      - "3000:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  airflow_db:
+    image: postgres:15
+    container_name: dota2_airflow_db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  airflow_init:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: dota2_airflow_init
+    depends_on:
+      - airflow_db
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs/airflow:/opt/airflow/logs
+    command: db init
+    restart: on-failure
+
+  airflow_webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: dota2_airflow_webserver
+    depends_on:
+      - airflow_db
+      - airflow_init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dota2db
+      DB_USER: dota2
+      DB_PASSWORD: dota2pass
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs/airflow:/opt/airflow/logs
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
+    ports:
+      - "8080:8080"
+    command: webserver
+    restart: unless-stopped
+
+  airflow_scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: dota2_airflow_scheduler
+    depends_on:
+      - airflow_db
+      - airflow_init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dota2db
+      DB_USER: dota2
+      DB_PASSWORD: dota2pass
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs/airflow:/opt/airflow/logs
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
+    command: scheduler
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  airflow_db_data:
+  metabase_data:
