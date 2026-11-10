@@ -105,30 +105,31 @@ def save_attrs_to_db(attrs: list) -> None:
 
 
 def save_positions_to_db(positions_best: list) -> None:
+    """Сохраняет лучших героев по позициям в PostgreSQL (с полной очисткой)."""
     date = datetime.now().strftime('%Y-%m-%d')
     with get_connection() as conn:
         cur = conn.cursor()
+        # Очищаем таблицу
+        cur.execute("TRUNCATE TABLE best_position;")
+        
+        # Вставляем актуальные данные
         for p in positions_best:
             cur.execute("""
                 INSERT INTO best_position 
                 (position, name, winrate, picks, share, roles, date)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (position, date) DO UPDATE SET
-                    name = EXCLUDED.name,
-                    winrate = EXCLUDED.winrate,
-                    picks = EXCLUDED.picks,
-                    share = EXCLUDED.share
             """, (
                 p['position'], p['name'], p['winrate'],
                 p['picks'], p['share'], p['roles'], date
             ))
-    logger.info(f"Загружено в PostgreSQL: {len(positions_best)} позиций")
-
+    logger.info(f"Загружено в PostgreSQL: {len(positions_best)} позиций (таблица очищена)")
 
 def save_top_picks_to_db(positions_top: list) -> None:
+    """Сохраняет топы по пикам на позициях в PostgreSQL."""
     date = datetime.now().strftime('%Y-%m-%d')
     with get_connection() as conn:
         cur = conn.cursor()
+        cur.execute("TRUNCATE TABLE top_picks_position;")
         for p in positions_top:
             cur.execute("""
                 INSERT INTO top_picks_position 
@@ -137,8 +138,7 @@ def save_top_picks_to_db(positions_top: list) -> None:
             """, (
                 p['position'], p['name'], p['picks'], p['winrate'], date
             ))
-    logger.info(f"Загружено в PostgreSQL: {len(positions_top)} записей по пикам")
-
+    logger.info(f"Загружено в PostgreSQL: {len(positions_top)} записей по пикам (таблица очищена)")
 
 def save_trends_to_db(trends: list) -> None:
     with get_connection() as conn:
